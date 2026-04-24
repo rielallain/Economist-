@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd agent: runs economist-kobo-sync every Friday at 07:00.
+  install-macos.sh fills in INSTALL_DIR and installs this to
+  ~/Library/LaunchAgents/ automatically.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.economist.kobo-sync</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>INSTALL_DIR/run.sh</string>
+  </array>
+
+  <!-- Every Friday at 07:00 (Weekday: 0=Sun … 5=Fri … 6=Sat) -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>5</integer>
+    <key>Hour</key>   <integer>7</integer>
+    <key>Minute</key> <integer>0</integer>
+  </dict>
+
+  <!-- If the Mac was asleep at trigger time, run on next wake -->
+  <key>RunAtLoad</key><false/>
+
+  <key>StandardOutPath</key>
+  <string>INSTALL_DIR/economist-kobo-sync.log</string>
+  <key>StandardErrorPath</key>
+  <string>INSTALL_DIR/economist-kobo-sync.log</string>
+</dict>
+</plist>
