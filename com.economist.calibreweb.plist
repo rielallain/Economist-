@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Keeps Calibre-Web running as a background service on your Mac.
+  Your Kobo syncs with it over WiFi whenever both are on the same network.
+  install-macos.sh fills in INSTALL_DIR automatically.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.economist.calibreweb</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>INSTALL_DIR/venv/bin/cps</string>
+  </array>
+
+  <!-- Set the config directory so calibreweb stores its data inside the project -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>CALIBRE_WEB_HOME</key>
+    <string>INSTALL_DIR/.calibreweb</string>
+  </dict>
+
+  <!-- Start when the agent loads (i.e. on login) and restart if it crashes -->
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+
+  <key>StandardOutPath</key>
+  <string>INSTALL_DIR/calibreweb.log</string>
+  <key>StandardErrorPath</key>
+  <string>INSTALL_DIR/calibreweb.log</string>
+</dict>
+</plist>
