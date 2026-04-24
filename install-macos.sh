@@ -31,7 +31,6 @@ else
   exit 1
 fi
 
-# Add /Applications/calibre.app to PATH for the rest of the script
 if [[ -d /Applications/calibre.app/Contents/MacOS ]]; then
   export PATH="/Applications/calibre.app/Contents/MacOS:$PATH"
 fi
@@ -59,44 +58,55 @@ echo ""
 if [[ -f "$DIR/.env" ]]; then
   ask "A .env file already exists. Overwrite it? [y/N]"
   read -r overwrite
-  [[ "$overwrite" =~ ^[Yy]$ ]] || { ok "Keeping existing .env."; echo ""; }
+  if [[ ! "$overwrite" =~ ^[Yy]$ ]]; then
+    ok "Keeping existing .env."
+    echo ""
+  fi
 fi
 
 if [[ ! -f "$DIR/.env" ]] || [[ "${overwrite:-}" =~ ^[Yy]$ ]]; then
-  echo ""
+
+  # Economist credentials
   info "Enter your Economist account details:"
   ask "  Economist email:"
   read -r econ_email
   ask "  Economist password:"
   read -rs econ_pass; echo ""
+  echo ""
+
+  # Detect Dropbox folder
+  # macOS 12.3+ uses ~/Library/CloudStorage/Dropbox; older clients use ~/Dropbox
+  if [[ -d "$HOME/Library/CloudStorage/Dropbox" ]]; then
+    dropbox_root="$HOME/Library/CloudStorage/Dropbox"
+  elif [[ -d "$HOME/Dropbox" ]]; then
+    dropbox_root="$HOME/Dropbox"
+  else
+    dropbox_root=""
+  fi
+
+  if [[ -n "$dropbox_root" ]]; then
+    ok "Dropbox found at: $dropbox_root"
+    dropbox_path="$dropbox_root/Kobo"
+  else
+    info "Could not detect Dropbox automatically."
+    info "If Dropbox is not installed, download it from https://www.dropbox.com/install"
+    ask "  Dropbox folder path (press Enter for ~/Dropbox/Kobo):"
+    read -r dropbox_input
+    dropbox_path="${dropbox_input:-$HOME/Dropbox/Kobo}"
+  fi
 
   echo ""
-  info "Enter your Gmail details for sending to Kobo:"
-  info "  (Gmail App Password required — see https://myaccount.google.com/apppasswords)"
-  ask "  Gmail address:"
-  read -r gmail_addr
-  ask "  Gmail App Password (16 chars, no spaces):"
-  read -rs gmail_pass; echo ""
-
+  info "Books will be copied to: $dropbox_path"
+  info "On your Clara Color: Settings → My account → Dropbox → Connect"
+  info "Kobo will sync EPUB files from the root of that connected folder."
   echo ""
-  info "Find your Kobo email address:"
-  info "  On the Clara Color: Settings → My account → Send to Kobo"
-  info "  It looks like  abc123@send.kobo.com"
-  info "  Also add your Gmail address to the approved senders list there."
-  ask "  Kobo email address:"
-  read -r kobo_email
 
   cat > "$DIR/.env" <<EOF
 ECONOMIST_EMAIL=${econ_email}
 ECONOMIST_PASSWORD=${econ_pass}
 
-DELIVERY_METHOD=email
-
-KOBO_EMAIL=${kobo_email}
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=${gmail_addr}
-SMTP_PASSWORD=${gmail_pass}
+DELIVERY_METHOD=dropbox
+DROPBOX_PATH=${dropbox_path}
 
 DOWNLOAD_DIR=${HOME}/Downloads/Economist
 CALIBRE_BIN=/Applications/calibre.app/Contents/MacOS
@@ -106,17 +116,19 @@ EOF
 fi
 echo ""
 
-# ── 4. Smoke test ─────────────────────────────────────────────────────────────
+# ── 4. Smoke test (download only — no delivery yet) ───────────────────────────
 bold "Step 4 of 5 — Quick test"
-info "Running a dry-run to check credentials…"
+info "Downloading the latest edition to verify your Economist credentials…"
+info "(This may take 2–4 minutes while Calibre fetches articles.)"
 echo ""
 if "$DIR/venv/bin/python3" "$DIR/sync.py" --download; then
+  echo ""
   ok "Download succeeded."
 else
   echo ""
   info "Download failed. Common causes:"
-  info "  • Wrong Economist email or password"
-  info "  • Calibre not finding the recipe — check output above"
+  info "  • Wrong Economist email or password in .env"
+  info "  • No active Economist digital subscription"
   info "Fix .env and re-run: bash install-macos.sh"
   exit 1
 fi
@@ -129,7 +141,6 @@ mkdir -p "$LAUNCH_AGENTS"
 PLIST_DEST="$LAUNCH_AGENTS/$PLIST_NAME.plist"
 sed "s|INSTALL_DIR|$DIR|g" "$DIR/com.economist.kobo-sync.plist" > "$PLIST_DEST"
 
-# Unload first in case it was already loaded
 launchctl unload "$PLIST_DEST" 2>/dev/null || true
 launchctl load -w "$PLIST_DEST"
 
@@ -137,16 +148,21 @@ ok "launchd agent installed — will run every Friday at 07:00."
 info "Log file: $DIR/economist-kobo-sync.log"
 echo ""
 
-bold "═══════════════════════════════════"
+bold "═══════════════════════════════════════════════════"
 bold " All done!"
-bold "═══════════════════════════════════"
+bold "═══════════════════════════════════════════════════"
 echo ""
-info "Your Economist will land on your Kobo Clara Color every Friday morning."
-info "Make sure your Kobo is connected to WiFi so it can receive the file."
+info "Every Friday morning the script will:"
+info "  1. Download the new Economist edition via Calibre"
+info "  2. Copy it to your Dropbox folder"
+info "  3. Your Clara Color will pick it up next time it syncs over WiFi"
+echo ""
+info "Make sure your Kobo is connected to WiFi and Dropbox is linked"
+info "(Settings → My account → Dropbox on the device)."
 echo ""
 info "Useful commands:"
-info "  Run now:          bash run.sh"
-info "  Download only:    venv/bin/python3 sync.py --download"
-info "  View log:         tail -f economist-kobo-sync.log"
-info "  Uninstall agent:  launchctl unload ~/Library/LaunchAgents/$PLIST_NAME.plist"
+info "  Run now:        bash run.sh"
+info "  Download only:  venv/bin/python3 sync.py --download"
+info "  View log:       tail -f $DIR/economist-kobo-sync.log"
+info "  Uninstall:      launchctl unload $PLIST_DEST"
 echo ""
