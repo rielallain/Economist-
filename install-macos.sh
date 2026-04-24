@@ -52,9 +52,33 @@ echo ""
 
 # ── 2. Python virtual environment ─────────────────────────────────────────────
 bold "Step 2 of 6 — Python environment"
+
+# Prefer Homebrew Python 3.12 — macOS system Python 3.9 ships with LibreSSL
+# which lacks scrypt support required by newer werkzeug/calibreweb.
+PYTHON=""
+for candidate in \
+    /opt/homebrew/bin/python3.12 \
+    /usr/local/bin/python3.12 \
+    /opt/homebrew/bin/python3.11 \
+    /usr/local/bin/python3.11 \
+    /opt/homebrew/bin/python3 \
+    python3; do
+  if command -v "$candidate" &>/dev/null; then
+    PYTHON="$candidate"
+    break
+  fi
+done
+
+if [[ -z "$PYTHON" ]]; then
+  warn "Could not find Python 3.11+. Install it with:"
+  info "  brew install python@3.12"
+  exit 1
+fi
+ok "Using Python: $PYTHON ($(${PYTHON} --version))"
+
 if [[ ! -d "$DIR/venv" ]]; then
   info "Creating virtual environment…"
-  python3 -m venv "$DIR/venv"
+  "$PYTHON" -m venv "$DIR/venv"
   ok "Virtual environment created."
 else
   ok "Virtual environment already exists."
